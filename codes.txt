@@ -1,0 +1,256 @@
+--> Step 1: Input data
+Create your custom network-based data stream
+
+ma1306@ip-172-31-72-124:~/project$ cat step1.py
+'''
+16:137:602:900C
+Introduction to Cloud and Big Data Systems (Spring 2017)
+
+Assignment 4: Generating Custom Input DataStream
+Maruthi Ayyappan – Aishwarya Gunde – Beethoven Plaisir
+'''
+
+# Importing Libraries
+import random
+import sys
+import os
+import datetime
+import time
+
+endTime = datetime.datetime.now() + datetime.timedelta(minutes=15) #Stops after 15 mins of generating inputs for every 20 secs
+while True:
+        if datetime.datetime.now() >= endTime: break
+        dt = datetime.datetime.now().strftime("_%H_%M_%S")
+        fileName = "./inputs/inputData%s.txt"%(dt) #Stores the data in local inputData directory
+        f = open(fileName, 'w')
+        for x in range(100):
+                for y in range(100):
+                        t = random.randint(111111,999999)
+                        z = random.randint(-100,100)
+                        ln = "%i, %i, %i, %i" %(t,x,y,z) +"\n"
+                        f.write(ln)
+        f.close()
+        os.system("hdfs dfs -put -f ./%s /user/ma1306/inputData/" %(fileName)) # Transfers from local to HDFS
+        time.sleep(20) #Sleep time 20 seconds
+
+		
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--> Step 2: Step 2: Online processing
+Compute wind speed variability in the last two minutes (sliding)
+window
+– Use increases of 20 seconds for your window
+– You will need to take, for each coordinate (x,y) the MAX and MIN values in that
+window
+• Save the result of algorithm for each window in HDFS
+– Store the variability of wind speed (i.e., MAX – MIN) for each coordinate, for each
+window in HDFS.
+
+
+ma1306@ip-172-31-72-124:~/project$ cat step2.py
+'''
+16:137:602:900C
+Introduction to Cloud and Big Data Systems (Spring 2017)
+
+Assignment 4: Spark Streaming Application - Online Processing
+Maruthi Ayyappan – Aishwarya Gunde – Beethoven Plaisir
+'''
+# Importing Libraries
+from __future__ import print_function
+from pyspark import SparkContext
+from pyspark.streaming import StreamingContext
+import time
+import datetime
+
+sc = SparkContext(appName="PythonStreaming")
+ssc = StreamingContext(sc, (20))
+ssc.checkpoint("hdfs://ip-172-31-72-124:9000/user/ma1306/check")
+
+# String to List Function
+def stringToList(s):
+        tStamp, x, y, v = s.split(",")
+        lst = [ (int(x),int(y)) , int(v)]
+        return lst
+
+# Variability function used to give difference (max-min)		
+def variability(w0):
+        w = list(w0)
+        x = w[0][0]
+        y = w[0][1]
+        mx = w[1][0]
+        mn = w[1][1]
+        diff = mx-mn
+        return [x,y, diff]
+
+#Printing function for Easy Viewing of Data
+def printing(dStreamRDD):
+        tStamp = time.time()
+        dtStamp = datetime.datetime.fromtimestamp(tStamp).strftime('%H_%M_%S')
+        outputFile = "./outputs/variability_"+str(dtStamp)+".txt"
+        pyList = dStreamRDD.collect()
+        f = open(outputFile, 'w')
+        for r in pyList:
+                x = list(r)
+                f.write("%i, %i, %i" %( int(r[0]), int(r[1]), int(r[2]) )+"\n" )
+        f.close()
+
+lines = ssc.textFileStream("hdfs://172.31.72.124:9000/user/ma1306/inputData/")
+windowData1 = lines.map( (stringToList) ) #Map
+windowData2 = windowData1
+maxRead = windowData1.reduceByKeyAndWindow(max,60,20) #Reduce
+minRead = windowData2.reduceByKeyAndWindow(min,60,20) #Reduce
+
+diffData = maxRead.join(minRead)
+var = diffData.map(variability)
+var.pprint()
+var.foreachRDD(printing)
+
+ssc.start()
+ssc.awaitTermination()
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--> Step 3: Step 3: Batch processing
+• Batch processing is under demand, i.e., you will execute this
+MapReduce code when needed.
+• Process the data in the output file in HDFS from Step 2
+– This file should contain that variability of wind speed in each point for a number
+of time windows
+
+ma1306@ip-172-31-72-124:~/project$ cat step3.py
+'''
+16:137:602:900C
+Introduction to Cloud and Big Data Systems (Spring 2017)
+
+Assignment 4: Heat Map Generation
+Maruthi Ayyappan – Aishwarya Gunde – Beethoven Plaisir
+'''
+
+# Importing libraries
+import sys
+import os
+from pyspark.sql import SparkSession
+from operator import add
+
+# Building Spark Session for Spark Application
+spark = SparkSession\
+    .builder\
+    .appName("Python_Wind_Map")\
+    .getOrCreate()
+
+# GetSum function used below to get gets um after map-reduce. Used this function as lambda did not give value in expected format - [(pair), key]
+def getSum(w):
+    x = int(w[0])
+    y = int(w[1])
+    w = int(w[2])
+
+    return [(x,y),w]
+
+# GetCount function used below to get count after map-reduce.	
+def getCount(w):
+    x = int(w[0])
+    y = int(w[1])
+    w = int(w[2])
+    return [(x,y),1]
+
+# GetAvg function used below to get average after map-reduce.	
+def getAvg(w0):
+    w = list(w0)
+    x = int(w[0][0])
+    y = int(w[0][1])
+    v = int(w[1][0])
+    c = int(w[1][1])
+    return [x,y,float(v/c)]
+
+# Converting String to List	
+def stringToList(s):
+    x, y, v = s.split(",")
+    lst = [ int(x), int(y), int(v)]
+    return lst
+
+# Printing function to generate Average.txt file that can be used for generating Heat-Map	
+def printing(avg1):
+        outputFile = "./Average.txt"
+        f = open(outputFile, 'w')
+        for r in avg1:
+                f.write("%i, %i, %i" %( r[0], r[1], r[2] )+"\n"  )
+        f.close()
+
+# Combining output fils to generate average across all window outputs.
+dirName = sys.argv[1]
+dirList = os.listdir(dirName)
+try: os.system("hdfs dfs -rm -r "+dirName)
+except: pass
+os.system("hdfs dfs -put "+dirName )
+for i in range(len(dirList)):
+    fileName = dirName + "/" + dirList[i]
+    inputFile = spark.read.text(fileName).rdd
+    if i == 0:
+            combinedFile = inputFile
+    else:
+            combinedFile = combinedFile.union(inputFile)
+
+inFile = combinedFile.map(lambda x: x[0]).map( (stringToList) )
+
+a = inFile.map(getSum) #GetSum
+b = inFile.map(getCount) #GetCount
+sum   = a.reduceByKey(add)
+count = b.reduceByKey(add)
+avgData = sum.join(count)
+avglist = avgData.map(getAvg) #GetAverage
+avg = avglist.collect()
+printing(avg)
+spark.stop()
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Step 4: Heat Map
+• Generate a heat map with the average wind speed variability for
+each coordinate (x,y)
+– Only a single heat map is expected
+
+ma1306@ip-172-31-72-124:~/project$ cat step4.py
+'''
+16:137:602:900C
+Introduction to Cloud and Big Data Systems (Spring 2017)
+
+Assignment 4: Heat Map Generation
+Maruthi Ayyappan – Aishwarya Gunde – Beethoven Plaisir
+'''
+
+#Importing libraries to be used
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Loading output file to a csv, converting list into values of x y and z.
+def get_xyz_from_csv_file_np(csv_file_path): 
+    x, y, z = np.loadtxt(csv_file_path, delimiter=', ', dtype=np.int).T
+    plt_z = np.zeros((y.max()+1, x.max()+1))
+    plt_z[y, x] = z
+
+    return plt_z
+
+# Function to generate heatmap
+def draw_heatmap(plt_z):
+    plt_y = np.arange(plt_z.shape[0])
+    plt_x = np.arange(plt_z.shape[1])
+    z_min = plt_z.max()
+    z_max = plt_z.min() 
+# Set max and min value of Z to identify range of color.
+    plot_name = "demo"
+
+    color_map = plt.cm.gist_heat 
+    fig, ax = plt.subplots()
+    cax = ax.pcolor(plt_x, plt_y, plt_z, cmap=color_map, vmin=z_min, vmax=z_max)
+    ax.set_xlim(plt_x.min(), plt_x.max())
+    ax.set_ylim(plt_y.min(), plt_y.max())
+    fig.colorbar(cax).set_label(plot_name, rotation=270) 
+    ax.set_title(plot_name)  
+    ax.set_aspect('equal')
+    figure = plt.gcf()
+    fname = "heatmap.png"
+    plt.savefig(fname)
+
+fname = "Average.txt"
+res = get_xyz_from_csv_file_np(fname)
+draw_heatmap(res)
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+

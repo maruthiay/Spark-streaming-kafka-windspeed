@@ -1,0 +1,65 @@
+ma1306@ip-172-31-72-124:~/project$ hdfs dfs -ls inputData|tail -5
+-rw-r--r--   3 ma1306 supergroup     192031 2017-05-08 20:30 inputData/inputData_20_29_59.txt
+-rw-r--r--   3 ma1306 supergroup     192108 2017-05-08 20:30 inputData/inputData_20_30_21.txt
+-rw-r--r--   3 ma1306 supergroup     192208 2017-05-08 20:30 inputData/inputData_20_30_43.txt
+-rw-r--r--   3 ma1306 supergroup     192154 2017-05-08 20:31 inputData/inputData_20_31_05.txt
+-rw-r--r--   3 ma1306 supergroup     192111 2017-05-08 20:31 inputData/inputData_20_31_27.txt
+ma1306@ip-172-31-72-124:~/project$
+
+Input example:
+ma1306@ip-172-31-72-124:~/project$ hdfs dfs -cat inputData/inputData_20_31_27.txt|head
+960668, 0, 0, 88
+465241, 0, 1, 91
+761512, 0, 2, -10
+324083, 0, 3, -2
+924453, 0, 4, 72
+830520, 0, 5, 18
+339388, 0, 6, -6
+537370, 0, 7, 15
+190330, 0, 8, 2
+641668, 0, 9, 20
+cat: Unable to write to output stream.
+ma1306@ip-172-31-72-124:~/project$
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Output example:
+ma1306@ip-172-31-72-124:~/project$ hdfs dfs -ls outputs/ |tail -5
+-rw-r--r--   3 ma1306 supergroup      98000 2017-05-08 20:04 outputs/variability_18_03_22.txt
+-rw-r--r--   3 ma1306 supergroup     109669 2017-05-08 20:34 outputs/variability_18_08_21.txt
+-rw-r--r--   3 ma1306 supergroup     109581 2017-05-08 20:35 outputs/variability_18_09_11.txt
+-rw-r--r--   3 ma1306 supergroup     109686 2017-05-08 20:35 outputs/variability_18_09_31.txt
+-rw-r--r--   3 ma1306 supergroup     109619 2017-05-08 20:35 outputs/variability_18_11_21.txt
+ma1306@ip-172-31-72-124:~/project$
+
+
+ma1306@ip-172-31-72-124:~/project$ hdfs dfs -cat outputs/variability_18_11_21.txt|head
+27, 95, 45
+0, 86, 93
+97, 93, 49
+7, 3, 55
+6, 28, 69
+91, 31, 12
+62, 12, 155
+59, 31, 56
+48, 86, 125
+99, 47, 57
+cat: Unable to write to output stream.
+ma1306@ip-172-31-72-124:~/project$
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+ma1306@ip-172-31-72-124:~/project$ head Average.txt
+54, 12, 11
+50, 96, 11
+42, 72, 4
+56, 38, 10
+1, 69, 12
+0, 94, 8
+67, 15, 11
+30, 60, 10
+59, 47, 7
+96, 14, 5
+ma1306@ip-172-31-72-124:~/project$
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
